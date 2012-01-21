@@ -277,7 +277,7 @@ class doc_Threads extends core_Manager
      * @param int $destFolderId key(mvc=doc_Folders)
      * @return boolean
      */
-    public static function move($id, $destFolderId)
+    public static function move($id, $destFolderId, $trust = 1000)
     {
         // Подсигуряваме, че нишката, която ще преместваме, както и папката, където ще я 
                 // преместваме съществуват.
@@ -302,6 +302,7 @@ class doc_Threads extends core_Manager
                 (object)array(
                     'id' => $rec->docId,
                     'folderId' => $destFolderId,
+                    'locationTrust' => $trust
                 )
             );
         }

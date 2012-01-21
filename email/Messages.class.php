@@ -4,7 +4,7 @@
 /**
  * Максимално време за еднократно фетчване на писма
  */
-defIfNot('IMAP_MAX_FETCHING_TIME', 30);
+defIfNot('IMAP_MAX_FETCHING_TIME', 90);
 
 
 /**
@@ -161,6 +161,7 @@ class email_Messages extends core_Master
         $this->FLD('emlFile', 'key(mvc=fileman_Files)', 'caption=eml файл, input=none');
         $this->FLD('htmlFile', 'key(mvc=fileman_Files)', 'caption=html файл, input=none');
         $this->FLD('boxIndex', 'int', 'caption=Индекс');
+        $this->FLD('locationTrust', 'int', 'caption=Достоверност');
         
         $this->setDbUnique('hash');
         
@@ -547,28 +548,54 @@ class email_Messages extends core_Master
     public function route_($rec)
     {
         // Правилата за рутиране, подредени по приоритет. Първото правило, след което съобщението
-                // има нишка и/или папка прекъсва процеса - рутирането е успешно.
-                $rules = array(
-            'ByThread',
-            'ByFromTo',
-            'ByFrom',
-            'Spam',
-            'ByDomain',
-            'ByPlace',
-            'ByTo',
+        // има нишка и/или папка прекъсва процеса - рутирането е успешно.
+        $rules = array(
+            60 => 'ByThread',
+            50 => 'ByFromTo',
+            40 => 'ByFrom',
+            30 => 'Spam',
+            20 => 'ByDomain',
+            10 => 'ByPlace',
+             0 => 'ByTo',
         );
         
-        foreach ($rules as $rule) {
+        if ($rec->fromEml == 'info@epsilon-paper.com') {
+            $x = 1;
+        }
+        
+        foreach ($rules as $priority => $rule) {
             $ruleMethod = 'route' . $rule;
             
             if (method_exists($this, $ruleMethod)) {
                 $this->{$ruleMethod}($rec);
                 
                 if ($rec->folderId || $rec->threadId) {
-                    break;
+                    $rec->locationTrust = $priority;
+                    return;
                 }
             }
         }
+    }
+
+    
+    static function reroute($trust)
+    {
+        $query = static::getQuery();
+        $query->where("#locationTrust < {$trust} AND #locationTrust IS NOT NULL");
+        
+        while ($rec = $query->fetch()) {
+            $folderId = $rec->folderId;
+            $threadId = $rec->threadId;
+            
+            $rec->folderId = $rec->threadId = NULL;
+        
+            static::route($rec);
+            
+            if ($rec->folderId != $folderId) {
+                doc_Threads::move($threadId, $rec->folderId, $rec->locationTrust);
+            }
+        }
+        
     }
     
     /**
@@ -586,7 +613,7 @@ class email_Messages extends core_Master
     {
         if (!static::isGenericRecipient($rec)) {
             // Това правило не се прилага за "общи" имейли
-                        $rec->folderId = static::routeByRule($rec, email_Router::RuleFromTo);
+            $rec->folderId = static::routeByRule($rec, email_Router::RuleFromTo);
         }
     }
     
@@ -597,7 +624,7 @@ class email_Messages extends core_Master
     {
         if (static::isGenericRecipient($rec)) {
             // Това правило се прилага само за "общи" имейли
-                        $rec->folderId = static::routeByRule($rec, email_Router::RuleFrom);
+            $rec->folderId = static::routeByRule($rec, email_Router::RuleFrom);
         }
     }
     
@@ -929,6 +956,10 @@ class email_Messages extends core_Master
      */
     static function makeFromToRule($rec)
     {
+        if (isset($rec->locationTrust) && $rec->locationTrust < 20) {
+            return;
+        }
+        
         if (!static::isGenericRecipient($rec)) {
             $key = email_Router::getRoutingKey($rec->fromEml, $rec->toEml, email_Router::RuleFromTo);
             
@@ -956,6 +987,10 @@ class email_Messages extends core_Master
      */
     static function makeFromRule($rec)
     {
+        if (isset($rec->locationTrust) && $rec->locationTrust < 20) {
+            return;
+        }
+        
         // Най-висок приоритет, нарастващ с времето
         $priority = email_Router::dateToPriority($rec->date, 'high', 'asc');
         
@@ -979,6 +1014,10 @@ class email_Messages extends core_Master
      */
     static function makeDomainRule($rec)
     {
+        if (isset($rec->locationTrust) && $rec->locationTrust < 20) {
+            return;
+        }
+        
         if (static::isGenericRecipient($rec) && ($key = email_Router::getRoutingKey($rec->fromEml, NULL, email_Router::RuleDomain))) {
             
             // До тук: получателя е общ и домейна не е публичен (иначе нямаше да има ключ).

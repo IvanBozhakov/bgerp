@@ -271,7 +271,7 @@ class email_Inboxes extends core_Master
     {
         $rec = static::fetch("#email = '{$email}'");
         
-        return (boolean)$rec && ($rec->bypassRoutingRules == 'no');
+        return !(boolean)$rec || ($rec->bypassRoutingRules == 'no');
     }
     
     

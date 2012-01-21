@@ -111,6 +111,11 @@ class email_Router extends core_Manager
         return ht::createLink("{$rec->objectType}:{$rec->objectId}", $url);
     }
     
+    function on_AfterSave($mvc, $id, $rec)
+    {
+        $mvc->reroute($rec);
+    }
+    
     
     /**
      * Определя папката, в която да се рутира писмо от $fromEmail до $toEmail, според правило тип $rule
@@ -131,7 +136,7 @@ class email_Router extends core_Manager
         
         if ($rec) {
             // от $rec->objectType и $rec->objectId изваждаме folderId
-                        switch ($rec->objectType) {
+            switch ($rec->objectType) {
                 case 'document' :
                     $folderId = doc_Containers::fetchField($rec->objectId, 'folderId');
                     break;
@@ -213,13 +218,16 @@ class email_Router extends core_Manager
         $query = static::getQuery();
         $query->orderBy('priority', 'DESC');
         
+        expect($rule->key && $rule->type, $rec);
+        
         $rec = $query->fetch("#key = '{$rule->key}' AND #type = '{$rule->type}'");
         
         if ($rec->priority < $rule->priority) {
             // Досегашното правило за тази двойка <type, key> е с по-нисък приоритет
-                        // Обновяваме го
-                        $rule->id = $rec->id;
+            // Обновяваме го
+            $rule->id = $rec->id;
             expect($rule->objectType && $rule->objectId && $rule->key, $rule);
+            
             static::save($rule);
         }
     }
@@ -259,7 +267,7 @@ class email_Router extends core_Manager
      */
     static function dateToPriority($date, $importance = 'high', $dir = 'asc')
     {
-        $priority = dt::mysql2timestamp($date);
+        $priority = dt::mysql2timestamp(dt::now(TRUE));
         $dir      = strtolower($dir);
         $importance   = strtolower($importance);
         
@@ -280,5 +288,22 @@ class email_Router extends core_Manager
         $priority = $importance . $priority;
         
         return $priority;
+    }
+    
+    static function reroute($rec)
+    {
+        switch ($rec->type) {
+            case static::RuleFromTo:
+                $trust = 50;
+                break;
+            case static::RuleFrom:
+                $trust = 40;
+                break;
+            case static::RuleDomain:
+                $trust = 30;
+                break;
+        }
+        
+        email_Messages::reroute($trust);
     }
 }
