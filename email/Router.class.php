@@ -113,7 +113,7 @@ class email_Router extends core_Manager
     
     function on_AfterSave($mvc, $id, $rec)
     {
-        $mvc->reroute($rec);
+        email_Messages::reroute($rec);
     }
     
     
@@ -288,22 +288,5 @@ class email_Router extends core_Manager
         $priority = $importance . $priority;
         
         return $priority;
-    }
-    
-    static function reroute($rec)
-    {
-        switch ($rec->type) {
-            case static::RuleFromTo:
-                $trust = 50;
-                break;
-            case static::RuleFrom:
-                $trust = 40;
-                break;
-            case static::RuleDomain:
-                $trust = 30;
-                break;
-        }
-        
-        email_Messages::reroute($trust);
     }
 }

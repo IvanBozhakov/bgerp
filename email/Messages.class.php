@@ -146,6 +146,7 @@ class email_Messages extends core_Master
         $this->FLD("messageId", "varchar", "caption=Съобщение ID");
         $this->FLD("subject", "varchar", "caption=Тема");
         $this->FLD("fromEml", "email", 'caption=От->Имейл');
+        $this->XPR("fromDomain", "varchar", "SUBSTRING_INDEX(#fromEml,'@',-1)", 'caption=От->Домейн');
         $this->FLD("fromName", "varchar", 'caption=От->Име');
         $this->FLD("toEml", "email", 'caption=До->Имейл');
         $this->FLD("toBox", "email", 'caption=До->Кутия');
@@ -595,10 +596,6 @@ class email_Messages extends core_Master
              0 => 'ByTo',
         );
         
-        if ($rec->fromEml == 'info@epsilon-paper.com') {
-            $x = 1;
-        }
-        
         foreach ($rules as $priority => $rule) {
             $ruleMethod = 'route' . $rule;
             
@@ -614,9 +611,24 @@ class email_Messages extends core_Master
     }
 
     
-    static function reroute($trust)
+    static function reroute($rule)
     {
         $query = static::getQuery();
+        
+        switch ($rule->type) {
+            case email_Router::RuleFromTo:
+                $trust = 50;
+                break;
+            case email_Router::RuleFrom:
+                $trust = 40;
+                $query->where("#fromEml = '{$rule->key}'");
+                break;
+            case email_Router::RuleDomain:
+                $trust = 20;
+                $query->where("#fromDomain = '{$rule->key}'");
+                break;
+        }
+        
         $query->where("#locationTrust < {$trust} AND #locationTrust IS NOT NULL");
         
         while ($rec = $query->fetch()) {
