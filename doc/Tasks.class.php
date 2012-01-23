@@ -187,7 +187,7 @@ class doc_Tasks extends core_Master
     function on_AfterGetRequiredRoles($mvc, &$requiredRoles, $action, $rec = NULL, $userId = NULL)
     {
         // За метода 'act_ChangeTaskState' има права, само ако потребитела е сред отговорниците на задачата 
-                if ($rec->id && ($action == 'changetaskstate')) {
+        if ($rec->id && ($action == 'changetaskstate')) {
             $rec = $mvc->fetch($rec->id);
             
             $cu = core_Users::getCurrent();
@@ -229,7 +229,7 @@ class doc_Tasks extends core_Master
                 case "everyThreeDays" :
                 case "everyWeek" :
                     // Изчисляване с добавяне на секундите на повторението
-                                        while ($tsTimeNextRepeat < $tsNow) {
+                    while ($tsTimeNextRepeat < $tsNow) {
                         $tsTimeNextRepeat += $tsRepeatInterval;
                     }
                     
@@ -319,14 +319,8 @@ class doc_Tasks extends core_Master
     function on_BeforeSave($mvc, &$id, $rec)
     {
         $rec->timeNextRepeat = doc_Tasks::calcNextRepeat($rec->timeStart, $rec->repeat);
-        
-        if ($rec->state == 'active') {
-            if($rec->timeNextRepeat > dt::verbal2mysql()) {
-                $rec->state = 'pending';
-            }
-        }
-        
-        if ($rec->state == 'draft') {
+
+        if ($rec->state == 'draft' || !$rec->id) {
             $rec->notificationSent = 'no';
         }
     }
@@ -398,16 +392,17 @@ class doc_Tasks extends core_Master
      * 1. Нотификация
      * 2. Старт на задачите
      */
-    /**
-     * function cron_ManageTasks()
-     */
     function cron_AutoTasks()
     {
         // #1 Нотификация на задачите
         $queryTasks = doc_Tasks::getQuery();
-        $where = "#state = 'pending' AND #notificationSent = 'no' AND DATE_ADD(NOW(), INTERVAL #notification MINUTE) > #timeNextRepeat";
+        $where = "#state = 'pending' AND 
+                  #notificationSent = 'no' AND 
+                  (DATE_ADD(NOW(), INTERVAL CAST(CONCAT('', #notification) AS UNSIGNED) MINUTE) > #timeNextRepeat)";
         
         while($recTasks = $queryTasks->fetch($where)) {
+            // bp(dt::verbal2mysql(), $recTasks->notification, $recTasks->timeNextRepeat);
+                    
             // Датата и часът на изпълнение на задачата (без секундите)
             $taskDate = substr($recTasks->timeNextRepeat, 0, 10);
             $taskTime = substr($recTasks->timeNextRepeat, 11, 5);
@@ -450,7 +445,7 @@ class doc_Tasks extends core_Master
         
         unset($queryTasks, $where, $recTasks);
         // ENDOF #2 Старт на задачите 
-    }
+    }    
     
     
     /**
@@ -540,8 +535,22 @@ class doc_Tasks extends core_Master
                                    everyFiveYears=всяки пет години)', 'caption=Времена->Повторение,mandatory');
         $form->setDefault('repeat', $recTask->repeat);
         
+        // notification
+        $form->FNC('notification', 'enum(0=на момента,
+                                         5=5 мин. предварително,
+                                         10=10 мин. предварително,
+                                         30=30 мин. предварително,
+                                         60=1 часа предварително,
+                                         120=2 часа предварително,
+                                         480=8 часа предварително,
+                                         1440=1 ден предварително,
+                                         2880=2 дни предварително,
+                                         4320=3 дни предварително,
+                                         10080=7 дни предварително)', 'caption=Времена->Напомняне,mandatory');
+        $form->setDefault('notification', $recTask->notification);        
+        
         $form->view = 'vertical';
-        $form->showFields = 'timeStart, repeat';
+        $form->showFields = 'timeStart, repeat, notification';
         
         // Бутон 'Затваряне'
         $closeUrl = array('doc_Tasks', 'closeTask', $recTask->id);
@@ -575,6 +584,7 @@ class doc_Tasks extends core_Master
             } else {
                 $recTask->timeStart        = $rec->timeStart;
                 $recTask->repeat           = $rec->repeat;
+                $recTask->notification     = $rec->notification;
                 $recTask->timeNextRepeat   = $rec->timeNextRepeat;
                 $recTask->notificationSent = 'no';
                 $recTask->state            = 'pending';
