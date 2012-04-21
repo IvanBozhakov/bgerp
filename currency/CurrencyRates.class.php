@@ -52,7 +52,7 @@ class currency_CurrencyRates extends core_Manager
         'rate_in_time_lines' => array(
             'menu' => 'По валути (линии)',
             'type' => 'lines',
-            'diff' => 'currencyId',
+            'per' => 'currencyId',
             'titleTpl' => 'Цена за 1 [#baseCurrencyId#] в [#currencyId#]',
             'labelTpl' => '[#rate#] [#currencyId#]',
             'ax' => 'date',
@@ -61,7 +61,7 @@ class currency_CurrencyRates extends core_Manager
         'rate_in_time_bars' => array(
             'menu' => 'По валути (площ)',
             'type' => 'bars',
-            'diff' => 'currencyId',
+            'per' => 'currencyId',
             'titleTpl' => 'Цена за 1 [#baseCurrencyId#] в [#currencyId#]',
             'labelTpl' => '[#rate#] [#currencyId#]',
             'ax' => 'date',
@@ -70,9 +70,9 @@ class currency_CurrencyRates extends core_Manager
         'all' => array(
             'menu' => 'Всички',
             'series' => 'currencyId',
-            'diff' => 'date',
+            'per' => 'date',
             'type' => 'bars',
-//             'titleTpl' => 'Цена за 1 [#baseCurrencyId#] в [#currencyId#]',
+            'titleTpl' => 'Цена за 1 [#baseCurrencyId#] в [#currencyId#]',
             'labelTpl' => '[#rate#] [#currencyId#]',
             'ax' => 'date',
             'ay' => 'currencyId'
